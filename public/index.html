@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Révéler l'Ombre — prototype</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="app-header">
+      <h1>Révéler l'Ombre</h1>
+      <p class="disclaimer">
+        Prototype de test — outil de développement personnel inspiré de Jung,
+        <strong>pas un substitut à une thérapie</strong>.
+      </p>
+      <button id="reset" type="button" class="reset-btn">Nouvelle conversation</button>
+    </header>
+
+    <div id="gate" class="gate hidden">
+      <form id="gate-form" class="gate-form">
+        <p class="gate-text">
+          Accès protégé — entre le code qu'on t'a communiqué.
+        </p>
+        <input
+          id="gate-input"
+          type="password"
+          placeholder="Code d'accès"
+          autocomplete="off"
+        />
+        <button type="submit">Entrer</button>
+        <p id="gate-error" class="gate-error hidden"></p>
+      </form>
+    </div>
+
+    <div id="app-main" class="hidden">
+      <main id="chat" class="chat" aria-live="polite"></main>
+
+      <p id="hint" class="hint">
+        Tape un premier message pour commencer (ex. « Salut »).
+      </p>
+
+      <form id="composer" class="composer">
+        <input
+          id="input"
+          type="text"
+          placeholder="Écris ton message…"
+          autocomplete="off"
+        />
+        <button type="submit">Envoyer</button>
+      </form>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
