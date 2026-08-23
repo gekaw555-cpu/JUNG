@@ -32,29 +32,39 @@ if ("serviceWorker" in navigator) {
 const SpeechRecognitionCtor =
   window.SpeechRecognition || window.webkitSpeechRecognition;
 let recognition = null;
-let isListening = false;
+// Le navigateur coupe la reconnaissance après un silence ou une limite
+// interne (souvent ~60s) même en mode "continuous". userWantsListening
+// distingue "l'utilisateur veut toujours parler" (relance automatique)
+// de "l'utilisateur a appuyé sur stop" (on arrête pour de vrai) — c'est
+// ce qui donne, dans la pratique, une durée d'enregistrement illimitée.
+let userWantsListening = false;
+let finalTranscript = "";
 
 if (SpeechRecognitionCtor) {
   micBtn.classList.remove("hidden");
   recognition = new SpeechRecognitionCtor();
   recognition.lang = "fr-FR";
-  recognition.interimResults = false;
+  recognition.continuous = true;
+  recognition.interimResults = true;
   recognition.maxAlternatives = 1;
 
   recognition.addEventListener("start", () => {
-    isListening = true;
     micBtn.classList.add("listening");
     micBtn.setAttribute("aria-pressed", "true");
     micErrorEl.classList.add("hidden");
-    stopSpeaking(); // évite que le micro capte la voix de l'app elle-même
   });
 
   recognition.addEventListener("result", (event) => {
-    const transcript = event.results[0]?.[0]?.transcript ?? "";
-    if (transcript) {
-      inputEl.value = transcript;
-      inputEl.focus();
+    let interim = "";
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      const result = event.results[i];
+      if (result.isFinal) {
+        finalTranscript += result[0].transcript + " ";
+      } else {
+        interim += result[0].transcript;
+      }
     }
+    inputEl.value = (finalTranscript + interim).trim();
   });
 
   recognition.addEventListener("error", (event) => {
@@ -63,27 +73,52 @@ if (SpeechRecognitionCtor) {
       "no-speech": "Je n'ai rien entendu, réessaie.",
       "audio-capture": "Aucun micro détecté.",
     };
+    // Ces deux erreurs ne se résoudront pas en réessayant tout seul.
+    if (event.error === "not-allowed" || event.error === "audio-capture") {
+      userWantsListening = false;
+    }
     micErrorEl.textContent = messages[event.error] || "Erreur de reconnaissance vocale.";
     micErrorEl.classList.remove("hidden");
   });
 
   recognition.addEventListener("end", () => {
-    isListening = false;
-    micBtn.classList.remove("listening");
-    micBtn.setAttribute("aria-pressed", "false");
-  });
-
-  micBtn.addEventListener("click", () => {
-    if (isListening) {
-      recognition.stop();
-    } else {
+    if (userWantsListening) {
+      // Coupure imposée par le navigateur, pas une vraie demande d'arrêt :
+      // on relance directement, l'utilisateur n'a rien à refaire.
       try {
         recognition.start();
       } catch {
-        // start() peut lever si déjà démarré — sans conséquence, on ignore
+        // start() peut lever si un redémarrage est déjà en cours — sans
+        // conséquence, un prochain cycle "end" retentera.
+      }
+    } else {
+      micBtn.classList.remove("listening");
+      micBtn.setAttribute("aria-pressed", "false");
+    }
+  });
+
+  micBtn.addEventListener("click", () => {
+    if (userWantsListening) {
+      userWantsListening = false;
+      recognition.stop();
+    } else {
+      userWantsListening = true;
+      finalTranscript = inputEl.value ? `${inputEl.value} ` : "";
+      stopSpeaking(); // évite que le micro capte la voix de l'app elle-même
+      try {
+        recognition.start();
+      } catch {
+        // déjà démarré — sans conséquence
       }
     }
   });
+}
+
+function stopListening() {
+  if (userWantsListening) {
+    userWantsListening = false;
+    recognition.stop();
+  }
 }
 
 // --- Sortie vocale (lecture des réponses) -------------------------------
@@ -351,6 +386,7 @@ async function send(text) {
 
 formEl.addEventListener("submit", (e) => {
   e.preventDefault();
+  stopListening();
   const text = inputEl.value.trim();
   if (!text) return;
   inputEl.value = "";
