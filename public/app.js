@@ -6,6 +6,8 @@ const sendBtn = formEl.querySelector("button[type=submit]");
 const micBtn = document.getElementById("mic");
 const micErrorEl = document.getElementById("mic-error");
 const ttsToggleBtn = document.getElementById("tts-toggle");
+const voicePickerRowEl = document.getElementById("voice-picker-row");
+const voiceSelectEl = document.getElementById("voice-select");
 
 const gateEl = document.getElementById("gate");
 const gateFormEl = document.getElementById("gate-form");
@@ -146,12 +148,30 @@ function stopListening() {
 // --- Sortie vocale (lecture des réponses) -------------------------------
 // Idem : SpeechSynthesis native, gratuite, large support (Chrome + Safari,
 // desktop + mobile). Désactivée par défaut, activable via le bouton 🔇/🔊.
+// Les voix système varient énormément en qualité (parfois robotiques,
+// parfois "enhanced"/neuronales) — on laisse la personne choisir la
+// meilleure disponible sur SON appareil plutôt que d'en imposer une.
 const TTS_KEY = "ombre-prototype-tts";
+const VOICE_KEY = "ombre-prototype-voice-uri";
 const ttsSupported = "speechSynthesis" in window;
 let ttsEnabled = ttsSupported && localStorage.getItem(TTS_KEY) === "on";
+let availableVoices = [];
 
 function stopSpeaking() {
   if (ttsSupported) window.speechSynthesis.cancel();
+}
+
+function pickBestFrenchVoice() {
+  const stored = localStorage.getItem(VOICE_KEY);
+  if (stored) {
+    const found = availableVoices.find((v) => v.voiceURI === stored);
+    if (found) return found;
+  }
+  const french = availableVoices.filter((v) => v.lang?.toLowerCase().startsWith("fr"));
+  // Les voix "enhanced"/"premium"/"neural" sont en général nettement plus
+  // naturelles que la voix système par défaut (fréquent sur iOS/Android).
+  const enhanced = french.find((v) => /enhanced|premium|neural|natural/i.test(v.name));
+  return enhanced || french[0] || null;
 }
 
 function speak(text) {
@@ -165,10 +185,8 @@ function speak(text) {
     .replace(/^\s*-\s+/gm, "");
   const utterance = new SpeechSynthesisUtterance(plain);
   utterance.lang = "fr-FR";
-  const frenchVoice = window.speechSynthesis
-    .getVoices()
-    .find((v) => v.lang?.startsWith("fr"));
-  if (frenchVoice) utterance.voice = frenchVoice;
+  const voice = pickBestFrenchVoice();
+  if (voice) utterance.voice = voice;
   window.speechSynthesis.speak(utterance);
 }
 
@@ -180,14 +198,54 @@ function updateTtsButton() {
     : "Lire les réponses à voix haute";
 }
 
+function populateVoiceSelect() {
+  availableVoices = window.speechSynthesis.getVoices();
+  const french = availableVoices.filter((v) => v.lang?.toLowerCase().startsWith("fr"));
+  const list = french.length ? french : availableVoices; // à défaut, tout proposer
+
+  if (!list.length) return; // voix pas encore chargées, on retentera au prochain "voiceschanged"
+
+  const current = pickBestFrenchVoice();
+  voiceSelectEl.innerHTML = "";
+  for (const v of list) {
+    const opt = document.createElement("option");
+    opt.value = v.voiceURI;
+    opt.textContent = `${v.name} (${v.lang})`;
+    if (current && v.voiceURI === current.voiceURI) opt.selected = true;
+    voiceSelectEl.appendChild(opt);
+  }
+  voicePickerRowEl.classList.toggle("hidden", !ttsEnabled);
+}
+
 if (ttsSupported) {
   ttsToggleBtn.classList.remove("hidden");
   updateTtsButton();
+  populateVoiceSelect();
+  // Sur beaucoup de navigateurs, la liste des voix se charge de façon
+  // asynchrone et est vide au tout premier appel — cet évènement prévient
+  // quand elle est enfin prête.
+  window.speechSynthesis.addEventListener("voiceschanged", populateVoiceSelect);
+
   ttsToggleBtn.addEventListener("click", () => {
     ttsEnabled = !ttsEnabled;
     localStorage.setItem(TTS_KEY, ttsEnabled ? "on" : "off");
-    if (!ttsEnabled) stopSpeaking();
     updateTtsButton();
+    voicePickerRowEl.classList.toggle("hidden", !ttsEnabled);
+    if (ttsEnabled) {
+      speak("Lecture vocale activée. Tu peux choisir une autre voix ci-dessous si tu préfères.");
+    } else {
+      stopSpeaking();
+    }
+  });
+
+  voiceSelectEl.addEventListener("change", () => {
+    localStorage.setItem(VOICE_KEY, voiceSelectEl.value);
+    const chosen = availableVoices.find((v) => v.voiceURI === voiceSelectEl.value);
+    stopSpeaking();
+    const utterance = new SpeechSynthesisUtterance("Voici ma nouvelle voix.");
+    utterance.lang = "fr-FR";
+    if (chosen) utterance.voice = chosen;
+    window.speechSynthesis.speak(utterance);
   });
 }
 
