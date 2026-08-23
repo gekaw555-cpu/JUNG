@@ -34,7 +34,7 @@ cp .env.example .env
 
 Puis éditer `.env` et renseigner votre clé Anthropic (`ANTHROPIC_API_KEY`). **Ne jamais commiter ce fichier** (il est dans `.gitignore`).
 
-> **Note réseau :** les scripts `start`/`dev` lancent Node avec `--use-system-ca` (Node 18+). Sur certains réseaux (proxy d'entreprise, environnement sandboxé) qui interceptent le TLS, Node peut sinon échouer à vérifier le certificat d'`api.anthropic.com` (`UNABLE_TO_VERIFY_LEAF_SIGNATURE`). Ce flag fait confiance au magasin de certificats du système plutôt qu'à celui, plus restreint, embarqué par Node — sans désactiver la vérification TLS elle-même.
+> **Note réseau (cas rare) :** si `npm start` échoue avec une erreur `UNABLE_TO_VERIFY_LEAF_SIGNATURE` en local, c'est que votre réseau (proxy d'entreprise, environnement sandboxé) intercepte le TLS et que Node n'a pas confiance dans son certificat. Utilisez alors `npm run start:local-tls-fix` à la place (nécessite Node 22.9+ — ce flag n'existe pas sur les versions plus anciennes, et **ne doit jamais être utilisé en production/déploiement**, où ce problème réseau n'existe pas).
 
 ## Lancer
 

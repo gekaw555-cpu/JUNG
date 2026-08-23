@@ -6,8 +6,9 @@
   "description": "Prototype web de test pour l'agent de révélation de l'ombre jungienne (avant intégration mobile).",
   "main": "server.js",
   "scripts": {
-    "start": "node --use-system-ca server.js",
-    "dev": "node --use-system-ca --watch server.js"
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "start:local-tls-fix": "node --use-system-ca server.js"
   },
   "engines": {
     "node": ">=18"
