@@ -8,10 +8,14 @@ Prototype web minimal pour **tester le comportement conversationnel de l'agent**
 ombre-jungienne-app/
 ├── server.js           # serveur Express : sert le front + proxy vers l'API Anthropic
 ├── system_prompt.md     # copie figée du system prompt verrouillé (source : scratchpad system_prompt_agent_ombre.md)
+├── Dockerfile            # build utilisé par Render (voir section Déploiement)
 ├── public/
 │   ├── index.html        # écran de chat unique
 │   ├── style.css
-│   └── app.js             # logique front : historique en mémoire, appels à /api/chat
+│   ├── app.js             # logique front : historique local, appels à /api/chat, code d'accès
+│   ├── manifest.webmanifest  # PWA : nom, icônes, couleurs, mode plein écran
+│   ├── sw.js               # service worker (coquille en cache, jamais les appels /api/*)
+│   └── icons/               # icônes PWA (générées, voir section PWA)
 ├── .env.example
 └── package.json
 ```
@@ -50,6 +54,22 @@ Ouvrir [http://localhost:3000](http://localhost:3000).
 - **Filet de sécurité côté serveur.** La détection de détresse et la redirection (ligne 3114, etc.) reposent entièrement sur le jugement du modèle via le system prompt verrouillé — il n'y a aucune couche de mots-clés ou de modération côté code. Pour une vraie mise en production, il faudrait probablement un filet supplémentaire (ex. journalisation des échanges signalés comme sensibles, alerte) au cas où le modèle raterait un signal — décision à prendre plus tard, volontairement absente ici.
 - **Comptes utilisateurs / authentification individuelle.** Il y a un code d'accès *partagé* (voir plus bas), mais aucune notion de compte, d'utilisateur distinct, ou de session identifiée. Une session anonyme par onglet.
 - **Design mobile final.** Cette interface est volontairement neutre (contenue dans une colonne façon smartphone) pour tester la conversation, pas pour préfigurer l'identité visuelle de l'app.
+
+## Installation sur téléphone (PWA) — 2026-08-23
+
+L'app est maintenant une **Progressive Web App** : installable sur l'écran d'accueil d'un téléphone (Android et iOS), s'ouvre en plein écran sans barre d'adresse, comme une vraie app. Ce n'est **pas** une app native ni un fichier `.apk`/`.ipa` — pas de compte développeur, pas de Play Store/App Store, pas d'Android Studio ni de Mac nécessaires. C'est le choix par défaut le plus rapide ; si vous voulez aller plus loin (APK installable, publication sur un store), il faudra une étape supplémentaire (ex. empaqueter avec Capacitor) — pas fait ici, dites-le si vous voulez qu'on y aille.
+
+**Pour l'installer :**
+- **Android (Chrome)** : ouvrir l'URL, menu ⋮ → « Ajouter à l'écran d'accueil » (ou une bannière d'installation peut apparaître automatiquement).
+- **iPhone/iPad (Safari uniquement — pas Chrome iOS)** : ouvrir l'URL, bouton Partager (carré avec flèche) → « Sur l'écran d'accueil ».
+
+**Ce qui a été ajouté :**
+- `public/manifest.webmanifest` — nom, icônes, couleurs, mode `standalone` (plein écran, sans barre de navigateur).
+- `public/icons/` — icônes générées (fond brun de la charte, motif en croissant), en plusieurs tailles dont une variante « maskable » pour Android (marge de sécurité contre le rognage en cercle/carré-arrondi selon le launcher).
+- `public/sw.js` — service worker minimal : met en cache la coquille de l'app (HTML/CSS/JS/icônes) pour un chargement plus rapide et un minimum de tolérance hors-ligne, mais **jamais** les appels à `/api/*` (conversation toujours en réseau direct, jamais mise en cache).
+- Balises dans `index.html` pour qu'iOS (qui ignore le manifest pour l'écran d'accueil) affiche aussi la bonne icône et s'ouvre en plein écran.
+
+**Limite connue :** comme le service gratuit Render s'endort après inactivité, la première ouverture de l'app installée après une pause peut mettre jusqu'à 50 secondes à répondre — l'app affichera l'écran de chargement en attendant, pas un bug.
 
 ## Persistance locale de la conversation
 

@@ -13,6 +13,15 @@ const appMainEl = document.getElementById("app-main");
 const STORAGE_KEY = "ombre-prototype-messages";
 const ACCESS_CODE_KEY = "ombre-prototype-access-code";
 
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js").catch(() => {
+      // pas grave si ça échoue (ex. navigation privée) — l'app marche quand
+      // même, juste sans installation ni mode hors-ligne pour la coquille.
+    });
+  });
+}
+
 function getStoredAccessCode() {
   try {
     return localStorage.getItem(ACCESS_CODE_KEY) || "";
