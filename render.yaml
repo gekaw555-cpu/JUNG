@@ -1,13 +1,10 @@
 services:
   - type: web
     name: ombre-jungienne-app
-    env: node
+    env: docker
+    dockerfilePath: ./Dockerfile
     plan: free
-    buildCommand: npm install
-    startCommand: npm start
     envVars:
-      - key: NODE_VERSION
-        value: 20
       - key: ANTHROPIC_MODEL
         value: claude-sonnet-5
       - key: ANTHROPIC_API_KEY
