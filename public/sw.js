@@ -1,4 +1,4 @@
-const CACHE_NAME = "ombre-shell-v1";
+const CACHE_NAME = "ombre-shell-v2";
 const SHELL_FILES = [
   "/",
   "/style.css",

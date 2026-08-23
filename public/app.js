@@ -3,6 +3,9 @@ const formEl = document.getElementById("composer");
 const inputEl = document.getElementById("input");
 const resetBtn = document.getElementById("reset");
 const sendBtn = formEl.querySelector("button[type=submit]");
+const micBtn = document.getElementById("mic");
+const micErrorEl = document.getElementById("mic-error");
+const ttsToggleBtn = document.getElementById("tts-toggle");
 
 const gateEl = document.getElementById("gate");
 const gateFormEl = document.getElementById("gate-form");
@@ -19,6 +22,115 @@ if ("serviceWorker" in navigator) {
       // pas grave si ça échoue (ex. navigation privée) — l'app marche quand
       // même, juste sans installation ni mode hors-ligne pour la coquille.
     });
+  });
+}
+
+// --- Entrée vocale (dictée) -------------------------------------------
+// API native du navigateur, aucun service tiers, aucun coût. Support
+// correct sur Chrome (desktop + Android) ; sur Safari iOS c'est partiel
+// et parfois absent selon la version — le bouton reste alors caché.
+const SpeechRecognitionCtor =
+  window.SpeechRecognition || window.webkitSpeechRecognition;
+let recognition = null;
+let isListening = false;
+
+if (SpeechRecognitionCtor) {
+  micBtn.classList.remove("hidden");
+  recognition = new SpeechRecognitionCtor();
+  recognition.lang = "fr-FR";
+  recognition.interimResults = false;
+  recognition.maxAlternatives = 1;
+
+  recognition.addEventListener("start", () => {
+    isListening = true;
+    micBtn.classList.add("listening");
+    micBtn.setAttribute("aria-pressed", "true");
+    micErrorEl.classList.add("hidden");
+    stopSpeaking(); // évite que le micro capte la voix de l'app elle-même
+  });
+
+  recognition.addEventListener("result", (event) => {
+    const transcript = event.results[0]?.[0]?.transcript ?? "";
+    if (transcript) {
+      inputEl.value = transcript;
+      inputEl.focus();
+    }
+  });
+
+  recognition.addEventListener("error", (event) => {
+    const messages = {
+      "not-allowed": "Micro refusé — autorise l'accès dans les réglages du navigateur.",
+      "no-speech": "Je n'ai rien entendu, réessaie.",
+      "audio-capture": "Aucun micro détecté.",
+    };
+    micErrorEl.textContent = messages[event.error] || "Erreur de reconnaissance vocale.";
+    micErrorEl.classList.remove("hidden");
+  });
+
+  recognition.addEventListener("end", () => {
+    isListening = false;
+    micBtn.classList.remove("listening");
+    micBtn.setAttribute("aria-pressed", "false");
+  });
+
+  micBtn.addEventListener("click", () => {
+    if (isListening) {
+      recognition.stop();
+    } else {
+      try {
+        recognition.start();
+      } catch {
+        // start() peut lever si déjà démarré — sans conséquence, on ignore
+      }
+    }
+  });
+}
+
+// --- Sortie vocale (lecture des réponses) -------------------------------
+// Idem : SpeechSynthesis native, gratuite, large support (Chrome + Safari,
+// desktop + mobile). Désactivée par défaut, activable via le bouton 🔇/🔊.
+const TTS_KEY = "ombre-prototype-tts";
+const ttsSupported = "speechSynthesis" in window;
+let ttsEnabled = ttsSupported && localStorage.getItem(TTS_KEY) === "on";
+
+function stopSpeaking() {
+  if (ttsSupported) window.speechSynthesis.cancel();
+}
+
+function speak(text) {
+  if (!ttsSupported || !ttsEnabled) return;
+  stopSpeaking();
+  // Retire la syntaxe markdown pour une lecture naturelle.
+  const plain = text
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/\*([^*]+)\*/g, "$1")
+    .replace(/^\s*-\s+/gm, "");
+  const utterance = new SpeechSynthesisUtterance(plain);
+  utterance.lang = "fr-FR";
+  const frenchVoice = window.speechSynthesis
+    .getVoices()
+    .find((v) => v.lang?.startsWith("fr"));
+  if (frenchVoice) utterance.voice = frenchVoice;
+  window.speechSynthesis.speak(utterance);
+}
+
+function updateTtsButton() {
+  ttsToggleBtn.textContent = ttsEnabled ? "🔊" : "🔇";
+  ttsToggleBtn.setAttribute("aria-pressed", String(ttsEnabled));
+  ttsToggleBtn.title = ttsEnabled
+    ? "Lecture à voix haute activée (cliquer pour désactiver)"
+    : "Lire les réponses à voix haute";
+}
+
+if (ttsSupported) {
+  ttsToggleBtn.classList.remove("hidden");
+  updateTtsButton();
+  ttsToggleBtn.addEventListener("click", () => {
+    ttsEnabled = !ttsEnabled;
+    localStorage.setItem(TTS_KEY, ttsEnabled ? "on" : "off");
+    if (!ttsEnabled) stopSpeaking();
+    updateTtsButton();
   });
 }
 
@@ -184,6 +296,7 @@ function removeTypingIndicator() {
 }
 
 async function send(text) {
+  stopSpeaking();
   messages.push({ role: "user", content: text });
   saveMessages();
   render();
@@ -222,8 +335,10 @@ async function send(text) {
       // l'ajoute pas à l'historique envoyé au modèle, juste affichée localement.
       errorText = data.error || "Erreur inconnue.";
     } else {
-      messages.push({ role: "assistant", content: data.text || "(réponse vide)" });
+      const reply = data.text || "(réponse vide)";
+      messages.push({ role: "assistant", content: reply });
       saveMessages();
+      speak(reply);
     }
   } catch (err) {
     removeTypingIndicator();
@@ -243,6 +358,7 @@ formEl.addEventListener("submit", (e) => {
 });
 
 resetBtn.addEventListener("click", () => {
+  stopSpeaking();
   messages = [];
   saveMessages();
   render();

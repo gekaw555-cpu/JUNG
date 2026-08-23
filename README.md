@@ -55,6 +55,15 @@ Ouvrir [http://localhost:3000](http://localhost:3000).
 - **Comptes utilisateurs / authentification individuelle.** Il y a un code d'accès *partagé* (voir plus bas), mais aucune notion de compte, d'utilisateur distinct, ou de session identifiée. Une session anonyme par onglet.
 - **Design mobile final.** Cette interface est volontairement neutre (contenue dans une colonne façon smartphone) pour tester la conversation, pas pour préfigurer l'identité visuelle de l'app.
 
+## Entrée/sortie vocale — 2026-08-23
+
+Deux boutons, tous deux via les API natives du navigateur (aucun service tiers, aucun coût, aucune clé supplémentaire) :
+
+- **🎤 Micro (dictée)** — à côté du champ de texte. Utilise `SpeechRecognition` (Web Speech API). Remplit le champ avec ce qui a été dit ; l'envoi reste manuel (bouton Envoyer ou touche Entrée), pour éviter d'envoyer une transcription mal comprise sans relecture. N'apparaît que si le navigateur le supporte — bon support sur Chrome (desktop et Android), partiel/absent sur Safari selon la version d'iOS. Aucune dégradation si absent : il suffit de taper comme avant.
+- **🔊/🔇 Lecture à voix haute** — bouton en haut à droite, à côté de « Nouvelle conversation ». Utilise `SpeechSynthesis`, activable/désactivable, état retenu dans `localStorage`. Quand activé, chaque nouvelle réponse de l'agent est lue automatiquement (texte nettoyé de la syntaxe markdown au préalable). Coupée automatiquement dès qu'on relance le micro (pour que l'app n'entende pas sa propre voix) ou qu'on envoie un nouveau message.
+
+**Confidentialité :** la reconnaissance vocale de Chrome transite par les serveurs de Google pour être transcrite (comportement standard du navigateur, hors de notre contrôle) — à mentionner si la confidentialité de ce qui est dit à voix haute est sensible pour l'usage prévu.
+
 ## Installation sur téléphone (PWA) — 2026-08-23
 
 L'app est maintenant une **Progressive Web App** : installable sur l'écran d'accueil d'un téléphone (Android et iOS), s'ouvre en plein écran sans barre d'adresse, comme une vraie app. Ce n'est **pas** une app native ni un fichier `.apk`/`.ipa` — pas de compte développeur, pas de Play Store/App Store, pas d'Android Studio ni de Mac nécessaires. C'est le choix par défaut le plus rapide ; si vous voulez aller plus loin (APK installable, publication sur un store), il faudra une étape supplémentaire (ex. empaqueter avec Capacitor) — pas fait ici, dites-le si vous voulez qu'on y aille.

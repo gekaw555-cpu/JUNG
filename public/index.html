@@ -25,7 +25,16 @@
         Prototype de test — outil de développement personnel inspiré de Jung,
         <strong>pas un substitut à une thérapie</strong>.
       </p>
-      <button id="reset" type="button" class="reset-btn">Nouvelle conversation</button>
+      <div class="header-actions">
+        <button
+          id="tts-toggle"
+          type="button"
+          class="icon-toggle-btn hidden"
+          title="Lire les réponses à voix haute"
+          aria-pressed="false"
+        >🔇</button>
+        <button id="reset" type="button" class="reset-btn">Nouvelle conversation</button>
+      </div>
     </header>
 
     <div id="gate" class="gate hidden">
@@ -52,6 +61,13 @@
       </p>
 
       <form id="composer" class="composer">
+        <button
+          id="mic"
+          type="button"
+          class="mic-btn hidden"
+          title="Parler au lieu d'écrire"
+          aria-pressed="false"
+        >🎤</button>
         <input
           id="input"
           type="text"
@@ -60,6 +76,7 @@
         />
         <button type="submit">Envoyer</button>
       </form>
+      <p id="mic-error" class="mic-error hidden"></p>
     </div>
   </div>
 
