@@ -40,6 +40,22 @@ let recognition = null;
 let userWantsListening = false;
 let finalTranscript = "";
 
+// Coupure automatique après un silence : distincte de la coupure imposée par
+// le navigateur ci-dessus — celle-ci est volontaire, pour arrêter d'écouter
+// quand la personne a fini de parler, sans qu'elle ait besoin de rappuyer.
+const SILENCE_TIMEOUT_MS = 2500;
+let silenceTimer = null;
+
+function resetSilenceTimer() {
+  clearTimeout(silenceTimer);
+  silenceTimer = setTimeout(() => stopListening(), SILENCE_TIMEOUT_MS);
+}
+
+function clearSilenceTimer() {
+  clearTimeout(silenceTimer);
+  silenceTimer = null;
+}
+
 if (SpeechRecognitionCtor) {
   micBtn.classList.remove("hidden");
   recognition = new SpeechRecognitionCtor();
@@ -52,6 +68,7 @@ if (SpeechRecognitionCtor) {
     micBtn.classList.add("listening");
     micBtn.setAttribute("aria-pressed", "true");
     micErrorEl.classList.add("hidden");
+    resetSilenceTimer(); // laisse le temps de commencer à parler
   });
 
   recognition.addEventListener("result", (event) => {
@@ -65,6 +82,7 @@ if (SpeechRecognitionCtor) {
       }
     }
     inputEl.value = (finalTranscript + interim).trim();
+    resetSilenceTimer(); // encore de la parole détectée : on repousse la coupure
   });
 
   recognition.addEventListener("error", (event) => {
@@ -76,6 +94,7 @@ if (SpeechRecognitionCtor) {
     // Ces deux erreurs ne se résoudront pas en réessayant tout seul.
     if (event.error === "not-allowed" || event.error === "audio-capture") {
       userWantsListening = false;
+      clearSilenceTimer();
     }
     micErrorEl.textContent = messages[event.error] || "Erreur de reconnaissance vocale.";
     micErrorEl.classList.remove("hidden");
@@ -92,6 +111,7 @@ if (SpeechRecognitionCtor) {
         // conséquence, un prochain cycle "end" retentera.
       }
     } else {
+      clearSilenceTimer();
       micBtn.classList.remove("listening");
       micBtn.setAttribute("aria-pressed", "false");
     }
@@ -100,6 +120,7 @@ if (SpeechRecognitionCtor) {
   micBtn.addEventListener("click", () => {
     if (userWantsListening) {
       userWantsListening = false;
+      clearSilenceTimer();
       recognition.stop();
     } else {
       userWantsListening = true;
@@ -117,6 +138,7 @@ if (SpeechRecognitionCtor) {
 function stopListening() {
   if (userWantsListening) {
     userWantsListening = false;
+    clearSilenceTimer();
     recognition.stop();
   }
 }
