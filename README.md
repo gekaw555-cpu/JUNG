@@ -6,9 +6,11 @@ Prototype web minimal pour **tester le comportement conversationnel de l'agent**
 
 ```
 ombre-jungienne-app/
-├── server.js           # serveur Express : sert le front + proxy vers l'API Anthropic
-├── system_prompt.md     # copie figée du system prompt verrouillé (source : scratchpad system_prompt_agent_ombre.md)
-├── Dockerfile            # build utilisé par Render (voir section Déploiement)
+├── server.js                    # serveur Express : sert le front + proxy vers l'API Anthropic
+├── rag.js                        # recherche lexicale (TF-IDF) dans grille_exercices_ombre.md
+├── grille_exercices_ombre.md      # fichier de référence complet (~132 600 mots), source du RAG
+├── system_prompt.md               # system prompt principal (identité, garde-fous, méthode, ton)
+├── Dockerfile                       # build utilisé par Render (voir section Déploiement)
 ├── public/
 │   ├── index.html        # écran de chat unique
 │   ├── style.css
@@ -23,10 +25,11 @@ ombre-jungienne-app/
 **Flux d'un message :**
 1. Le navigateur garde tout l'historique de la conversation en mémoire JS (variable `messages`, perdue au refresh — voir « Ce qui n'est pas implémenté »).
 2. Chaque envoi POSTe l'historique complet à `/api/chat`.
-3. `server.js` lit `system_prompt.md` **une fois au démarrage** et l'envoie comme paramètre `system` à chaque appel de l'API Anthropic (`POST /v1/messages`), avec le tableau `messages` reçu du client.
-4. Le texte de la réponse est renvoyé tel quel au front, qui l'affiche.
+3. `server.js` lit `system_prompt.md` **une fois au démarrage** (identité, garde-fous, méthode, ton — la partie stable de l'agent).
+4. À **chaque** message, `rag.js` cherche dans `grille_exercices_ombre.md` les passages les plus pertinents par rapport aux derniers messages de l'utilisateur (TF-IDF + cosinus, pas d'API d'embeddings externe — voir l'en-tête de `rag.js` pour le détail du choix), et les ajoute au `system` envoyé à l'API Anthropic pour ce tour précis, sous un en-tête « Matériel complémentaire » que l'agent ne doit jamais mentionner à l'utilisateur.
+5. Le texte de la réponse est renvoyé tel quel au front, qui l'affiche.
 
-Le system prompt n'est donc jamais modifié par le code : le serveur le charge en lecture seule. Pour changer le comportement de l'agent, on édite `system_prompt.md` (et on répercute le changement dans le fichier de référence du projet si besoin), pas le code.
+Le system prompt de base n'est donc jamais modifié par le code : le serveur le charge en lecture seule. Pour changer le comportement général de l'agent, on édite `system_prompt.md`. Pour enrichir la matière que l'agent peut mobiliser au cas par cas, on édite `grille_exercices_ombre.md` — inutile de tout condenser dans `system_prompt.md`, le RAG va chercher dedans en direct à chaque message. Si le fichier de référence est modifié en local pendant que le serveur tourne, redémarrer le serveur pour que `rag.js` reconstruise son index (ou appeler `reloadIndex()` depuis le code si besoin d'un rechargement à chaud).
 
 ## Installation
 

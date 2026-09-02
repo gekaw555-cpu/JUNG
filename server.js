@@ -3,6 +3,7 @@ import express from "express";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { buildContextBlock } from "./rag.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -13,6 +14,12 @@ const SYSTEM_PROMPT = fs.readFileSync(
   path.join(__dirname, "system_prompt.md"),
   "utf-8"
 );
+
+// Combien des derniers messages utilisateur servent de requête pour la
+// recherche RAG (les tout derniers échanges donnent le contexte le plus
+// pertinent pour ce que l'agent doit répondre maintenant).
+const RAG_QUERY_TURNS = 3;
+const RAG_TOP_K = 5;
 
 const MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-5";
 const API_KEY = process.env.ANTHROPIC_API_KEY;
@@ -51,6 +58,30 @@ app.post("/api/chat", async (req, res) => {
         .json({ error: "ANTHROPIC_API_KEY manquante côté serveur (voir .env.example)." });
     }
 
+    // RAG : recherche dans grille_exercices_ombre.md à partir des derniers
+    // messages de l'utilisateur, pour donner à l'agent un accès en direct au
+    // fichier de référence complet (~132 600 mots) plutôt qu'au seul résumé
+    // condensé de system_prompt.md. Échoue silencieusement (log seulement) —
+    // un souci de RAG ne doit jamais empêcher l'agent de répondre.
+    let systemForThisTurn = SYSTEM_PROMPT;
+    try {
+      const queryText = messages
+        .filter((m) => m.role === "user")
+        .slice(-RAG_QUERY_TURNS)
+        .map((m) =>
+          Array.isArray(m.content)
+            ? m.content.map((b) => b.text ?? "").join(" ")
+            : m.content
+        )
+        .join("\n");
+      const contextBlock = buildContextBlock(queryText, RAG_TOP_K);
+      if (contextBlock) {
+        systemForThisTurn = SYSTEM_PROMPT + "\n\n---\n\n" + contextBlock;
+      }
+    } catch (ragErr) {
+      console.warn("⚠️  RAG : recherche échouée pour ce tour, on continue sans.", ragErr.message);
+    }
+
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -61,7 +92,7 @@ app.post("/api/chat", async (req, res) => {
       body: JSON.stringify({
         model: MODEL,
         max_tokens: 1024,
-        system: SYSTEM_PROMPT,
+        system: systemForThisTurn,
         messages,
       }),
     });
