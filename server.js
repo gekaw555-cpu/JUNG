@@ -15,11 +15,14 @@ const SYSTEM_PROMPT = fs.readFileSync(
   "utf-8"
 );
 
-// Combien des derniers messages utilisateur servent de requête pour la
-// recherche RAG (les tout derniers échanges donnent le contexte le plus
-// pertinent pour ce que l'agent doit répondre maintenant).
-const RAG_QUERY_TURNS = 3;
-const RAG_TOP_K = 5;
+// Combien des derniers messages (utilisateur + agent) servent de requête pour
+// la recherche RAG. Inclure les réponses de l'agent, pas seulement les
+// messages utilisateur, donne une requête plus riche : une réponse courte de
+// l'utilisateur ("fiable, sociable, ambitieux") ne porte presque aucun terme
+// exploitable seule, alors que le tour précédent de l'agent contient déjà le
+// thème exact de l'échange.
+const RAG_QUERY_TURNS = 4;
+const RAG_TOP_K = 6;
 
 const MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-5";
 const API_KEY = process.env.ANTHROPIC_API_KEY;
@@ -66,7 +69,6 @@ app.post("/api/chat", async (req, res) => {
     let systemForThisTurn = SYSTEM_PROMPT;
     try {
       const queryText = messages
-        .filter((m) => m.role === "user")
         .slice(-RAG_QUERY_TURNS)
         .map((m) =>
           Array.isArray(m.content)
@@ -91,7 +93,9 @@ app.post("/api/chat", async (req, res) => {
       },
       body: JSON.stringify({
         model: MODEL,
-        max_tokens: 1024,
+        // 1024 coupait régulièrement les réponses au milieu d'un mot une fois
+        // le system prompt enrichi (réponses plus étoffées et plus soutenues).
+        max_tokens: 2048,
         system: systemForThisTurn,
         messages,
       }),

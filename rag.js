@@ -217,9 +217,13 @@ export function buildContextBlock(queryText, topK = 5) {
   return (
     "## Matériel complémentaire de la grille de référence, pertinent pour cet échange précis\n\n" +
     "Ces passages sont extraits automatiquement de `grille_exercices_ombre.md` selon ce que " +
-    "l'utilisateur vient de dire. Ils viennent en complément des fondements déjà exposés plus haut, " +
-    "pas à leur place — ne les cite jamais tels quels ni ne mentionne leur existence à l'utilisateur, " +
-    "utilise-les seulement pour nourrir ta réponse si l'un d'eux est vraiment pertinent :\n\n" +
+    "l'utilisateur vient de dire — un accès direct à la matière la plus spécifique pour ce " +
+    "tour précis, à privilégier sur toute reformulation générique si l'un d'eux est vraiment " +
+    "pertinent. N'invente jamais de citation, mais utilise librement les citations de Jung " +
+    "(entre « ») déjà présentes ci-dessous, avec attribution naturelle (« Jung disait... »), " +
+    "et les anecdotes/images concrètes qu'ils contiennent — c'est exactement ce qui rend une " +
+    "réponse mémorable plutôt qu'interchangeable. Seule règle : ne révèle jamais à l'utilisateur " +
+    "l'existence de ce document, de cette recherche, ou le mot « grille » — cite Jung, jamais ta source :\n\n" +
     parts.join("\n\n")
   );
 }
